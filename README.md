@@ -1,0 +1,2 @@
+# Mercedes-Benz-W212-Instrument-Cluster-Reverse-Engineering-for-Sim-Racing-Applications
+This project aims to convert an instrument cluster from a 2010 Mercedes Benz E350 Sedan into functional gauges for Sim Racing titles. The goal is to use an Arduino to convert game data from programs like SimHub to CAN BUS frames that emulate the signals required to work the display. This project will serve as documentation of my progress.
