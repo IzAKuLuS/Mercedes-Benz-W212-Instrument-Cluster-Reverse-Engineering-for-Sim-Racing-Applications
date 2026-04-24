@@ -26,12 +26,28 @@ However, in the age of the internet, there is hope in the form of [charm.li](cha
 
 As can be seen, there are only 7 pins of interest. [Another look at the internet] tells us that pins 1, 4, and 6 are supplying power and a trigger to the unit - presumably from something like a key ignition being activated or something. That leaves the remaining 4 pins for something. Looking back to the [charm.li](charm.li) [page](https://charm.li/Mercedes%20Benz/2010/E%20350%20Sedan%20%28212.056%29%20V6-3.5L%20%28272.980%29/Repair%20and%20Diagnosis/Instrument%20Panel%2C%20Gauges%20and%20Warning%20Indicators/Diagrams/Electrical%20Diagrams/PE54.30-P-2101DAA%20Instrument%20Cluster%20%28IC%29%20Control%20Unit/) reveals that those remaining four pins are responsible for the CANBUS communications. This unit takes two CANBUS signals. 
 
+</p>
 
+<h2 align="left">Theoretical Wiring Diagram</h2>
+<p align="left">
 
+After reading up [a very informative article on how the CANBUS protocol works](https://www.ic-online.com/blog/post/understanding-the-need-for-120-ohm-termination-in-can-networks), I came up with the following diagram. <br/><br/>
+<img width="656" height="511" alt="Image" src="https://github.com/user-attachments/assets/12bb4ef5-da5c-4ce7-b1cd-0f4fe629d709" />
 
+As can be seen, there is a 12 volt power supply to provide the +12V, +12V trigger, and GND connections for the instrument cluster. There is also two separate Arduino microcontrollers providing the CAN_H and CAN_L for both of the instrument cluster's CANBUS networks. Each CAN_H and CAN_L is connected to a BUS bar in which all the CANBUS signals head to in order to reach their intended destinations - that being the instrument cluster pins 12,13, 17, and 18. As far as what the purpose of the CANBUS networks are for, they are to provide the signals for enabling certain functionality on the instrument cluster as a result of other signals sent by the car's ECU or other CANBUS nodes within the car's communication system. This [page](https://charm.li/Mercedes%20Benz/2010/E%20350%20Sedan%20%28212.056%29%20V6-3.5L%20%28272.980%29/Repair%20and%20Diagnosis/Instrument%20Panel%2C%20Gauges%20and%20Warning%20Indicators/Instrument%20Cluster%20%2F%20Carrier/Locations/Instrument%20Cluster/) details what each of these individual functions can be. Now in an ideal world, the original ECU of the particular 2010 Mercedes-Benz E350 sedan my gauges are from would be used to provide these signals alongside the other CANBUS node computers within the car; however, since I am trying to emulate those computers as well as the fact that the original car is not in my posession, this leaves me to discover what the specific CANBUS frames I need in order to determine how to activate each individual signal. This is a challenge to be addressed at a later time. 
+
+In regards to the rest of the wiring, the BUS bars can take the place of a row on a breadboard or some other contraption. As this is still in the planning phase, there is some room to make changes before fully committing to hardware. 120 ohm resistors are placed on the ends of the BUS bar in question in order to prevent signals from reflecting back and forth within the BUS, which can lead to communication errors that ultimately cripple the CANBUS network from functioning. By having this resistor here, this problem is omitted and the integrity of the signals are maintained. 
 
 </p>
 
+<h2 align="left">Cracking the code(s)</h2>
+<p align="left">
+
+As of this point, I have a wiring diagram for how the system should work on a high level. The problem is that I have no clue as to *what* the exact CANBUS frames are to activate the various functions of the instrument cluster. Now, if I was lucky, I could go to the original car the instrument cluster came from and scan the car's ECU to obtain the codes I need; however, since I do not have said car, this leaves me in a difficult situation. Fortunately, [this video](https://youtu.be/QOX_SNWhKeo?t=957) gives me a clue as to how to proceed from here. Specifically, uncovering the specific CANBUS signals can be done through a trial and error as demonstrated by the video I previously mentioned. Thus, my current focus is in regards to emulating this setup on a test bench in order to understand how the instrument cluster interacts with the CANBUS frames. Once I determine how to activate certain functions, all other functions should follow in due time. 
+
+**To be updated when new progress is made**
+
+</p>
 
 <h3 align="left">Languages and Tools being used so far:</h3>
 <p align="left"> <a href="https://www.arduino.cc/" target="_blank" rel="noreferrer"> <img src="https://cdn.worldvectorlogo.com/logos/arduino-1.svg" alt="arduino" width="40" height="40"/> </a> <a href="https://www.cprogramming.com/" target="_blank" rel="noreferrer"> <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/c/c-original.svg" alt="c" width="40" height="40"/> </a> <a href="https://www.w3schools.com/cpp/" target="_blank" rel="noreferrer"> <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/cplusplus/cplusplus-original.svg" alt="cplusplus" width="40" height="40"/> </a> <a href="https://www.python.org" target="_blank" rel="noreferrer"> <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="python" width="40" height="40"/> </a> </p>
