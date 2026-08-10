@@ -45,12 +45,8 @@ In regards to the rest of the wiring, the BUS bars can take the place of a row o
 
 As of this point, I have a wiring diagram for how the system should work on a high level. The problem is that I have no clue as to *what* the exact CANBUS frames are to activate the various functions of the instrument cluster. Now, if I was lucky, I could go to the original car the instrument cluster came from and scan the car's ECU to obtain the codes I need; however, since I do not have said car, this leaves me in a difficult situation. Fortunately, [this video](https://youtu.be/QOX_SNWhKeo?t=957) gives me a clue as to how to proceed from here. Specifically, uncovering the specific CANBUS signals can be done through a trial and error as demonstrated by the video I previously mentioned. Thus, my current focus is in regards to emulating this setup on a test bench in order to understand how the instrument cluster interacts with the CANBUS frames. Once I determine how to activate certain functions, all other functions should follow in due time. 
 
-**To be updated when new progress is made**
 
 </p>
-
-<h3 align="left">Languages and Tools being used so far:</h3>
-<p align="left"> <a href="https://www.arduino.cc/" target="_blank" rel="noreferrer"> <img src="https://cdn.worldvectorlogo.com/logos/arduino-1.svg" alt="arduino" width="40" height="40"/> </a> <a href="https://www.cprogramming.com/" target="_blank" rel="noreferrer"> <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/c/c-original.svg" alt="c" width="40" height="40"/> </a> <a href="https://www.w3schools.com/cpp/" target="_blank" rel="noreferrer"> <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/cplusplus/cplusplus-original.svg" alt="cplusplus" width="40" height="40"/> </a> <a href="https://www.python.org" target="_blank" rel="noreferrer"> <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="python" width="40" height="40"/> </a> </p>
 
 
 
@@ -58,10 +54,10 @@ As of this point, I have a wiring diagram for how the system should work on a hi
 
 <h2 align="left">CAN E Progress: From the DBC File to a Working Ignition State</h2>
 
-After the early wiring and coding work was completed, the next useful starting point was the supplied CAN database file:
+After the early wiring was completed, the next useful reference was the supplied CAN database file from the [OpenDBC](openDBC) [page](https://github.com/BYDcar/opendbc-byd/tree/master) repository:
 
 ```text
-mercedes_benz_e350_2010(1).dbc
+mercedes_benz_e350_2010.dbc
 ```
 
 A DBC file gives names to CAN messages and describes where known signals are stored inside each payload. It does not automatically guarantee that every message is complete or correct. In this project, it was mainly used as a map for choosing CAN IDs to test.
@@ -79,14 +75,14 @@ One important detail is that message IDs inside the DBC are written in decimal. 
 | `GEAR_LEVER` | 109 | `0x06D` | Not tested yet. |
 | `GEAR_PACKET` | 115 | `0x073` | Not tested yet. |
 
-The DBC helped confirm the known `0x045` and `0x283` messages and identified `0x245` as an ignition-related candidate. However, the working ignition control was ultimately found on CAN ID `0x001`, which is not defined in the supplied DBC.
+The DBC helped confirm the known `0x045` and `0x283` messages and identified `0x245` as an ignition-related candidate. However, the working ignition control was ultimately found on CAN ID `0x001`, which is not defined in the supplied DBC (More on this later).
 
 
 <h3 align="left">Experimental limits and current bench setup</h3>
 
-The original vehicle is not available, and there is no access to another W212 with a complete, known-good CAN E and CAN B network. Because of this, the project cannot record authentic traffic from a running car and copy it directly. Progress must come from documentation, candidate messages, controlled experiments, and limited brute-force testing.
+The original vehicle is not available, and I have no access to another W212 with a complete, known-good CAN E and CAN B network. Because of this, the project cannot record authentic CAN traffic from a running car and copy it directly. Progress must come from documentation, candidate messages, and controlled brute-force testing methods.
 
-The cluster has two separate CAN networks:
+The cluster has the following wiring specification, which includes the wiring for both CAN networks:
 
 | Instrument-cluster pin | Connection |
 |---:|---|
@@ -98,33 +94,31 @@ The cluster has two separate CAN networks:
 | 17 | CAN B Low |
 | 18 | CAN B High |
 
-The current hardware only allows one CAN network to be tested at a time. All of the results in this section were obtained on **CAN E only**, using pins 12 and 13. CAN B was not connected during these tests.
+Due to only having one Arduino 2560 MEGA microcontroller at my disposal, I can only test one CAN network at a time. because of this, all of the results in this section were obtained on **CAN E only**, using pins 12 and 13. CAN B was not connected during these tests.
 
-The current bench setup is:
+My current testing setup consists of:
 
 - Arduino Mega 2560.
 - Seeed Studio CAN-BUS Shield V2.0 with an MCP2515 controller.
 - CAN speed of `500 kbit/s`.
 - MCP2515 clock setting of `16 MHz`.
-- CAN shield chip-select pin `9`.
 - Serial Monitor set to `115200 baud` with a newline ending.
 - One 120-ohm termination resistor on the CAN shield.
 - One 120-ohm termination resistor at the instrument-cluster end.
-- About 60 ohms measured across CAN High and CAN Low when the network is powered down.
-
+  
 With power connected but no useful CAN traffic, the analog clock resets to 12:00. The screen, backlighting, warning lamps, and gauge needles otherwise remain inactive.
 
-Because only CAN E is connected, the cluster does not receive information from every system in the vehicle. This is why many system warnings appear after the cluster is placed in a full ignition-on state.
+Because only CAN E is connected, the cluster does not receive information from every system in the vehicle. 
 
-> **Safety note:** The explorer and its automatic search modes are intended for a standalone bench setup only. They should not be used on a complete vehicle.
+> **Safety note and Preface:**  The program I used to explore and search for CAN IDs and associated byte combinations were solely intended for a standalone bench setup only. They should not be used on a complete vehicle.
 
 
-<h3 align="left">The main Arduino explorer sketch</h3>
+<h3 align="left">The main Arduino sketch</h3>
 
 A separate Arduino `.ino` sketch was created to make CAN E testing repeatable without editing and re-uploading the program for every payload:
 
 ```text
-w212_can_e_ignition_explorer(1).ino
+w212_can_e_ignition_explorer.ino
 ```
 
 The sketch continuously services several independent message types:
@@ -180,7 +174,7 @@ IGN   for 3.5 seconds
 OFF   for 1.5 seconds
 ```
 
-The explorer can also print every frame transmitted by the cluster using `rx on`. This became important because a visual reaction alone does not show exactly when the cluster changes its internal operating state.
+The explorer can also print every frame transmitted by the cluster using `rx on`. This became extremely important due to the high data rate of the CAN communication making it really hard to notice changes in the serial monitor in real time. This change allowed me to copy the output of the serial monitor post-test and keep it in a text file for analysis later on.
 
 The `auto bit`, `auto byte`, and `auto nibble` modes were added to test unknown static payloads on `0x245`. Each candidate is applied for a fixed time, followed by an all-zero gap. These modes make broad searches easier, but they cannot discover messages that require counters, checksums, or several changing bytes.
 
@@ -245,14 +239,14 @@ The first major test used the simple profile:
 Period: 100 ms
 ```
 
-This produced the first complete vehicle-on-like response from the cluster:
+This produced the first complete vehicle-on-like [response](response) [page](https://photos.app.goo.gl/RNy5MMReFZ9sGrSt6) from the cluster:
 
 - Gauge backlighting turned on.
 - Display backlighting turned on.
 - The warning lamps turned on.
-- The display began cycling through warnings for missing vehicle systems.
+- The display began cycling through warnings for missing vehicle systems (due to information not being supplied by the other CAN B network).
 - Two chimes were heard during the first test.
-- The speedometer made a very small movement.
+- The speedometer made a very small movement 
 
 The small speedometer movement was not a valid speed indication because no wheel-speed data was being sent. It was most likely a startup, zeroing, or stepper-motor initialization movement.
 
@@ -262,10 +256,10 @@ The individual states were then tested separately:
 
 - The ACC candidate produced a limited response.
 - The IGN candidate produced the full warning-lamp, backlighting, warning-message, and chime response.
-- Similar ignition results were obtained with the driver door open and closed.
+- Similar ignition results were obtained with the driver door open and closed (as is the case in nearly all vehicles).
 - The ignition candidate still woke the cluster when the separate `0x045` wake message was disabled.
 
-This last test was important. It proved that the working `0x001` ignition message can wake the cluster by itself. The `0x045` message is useful for screen and menu interaction, but it is not required for the full ignition-on response.
+This last test was important because it proved that the working `0x001` ignition message can wake the cluster by itself. The `0x045` message is useful for screen and menu interaction, but it is not required for the full ignition-on response.
 
 
 <h3 align="left">Reducing the ignition messages to one changing byte</h3>
@@ -289,9 +283,9 @@ Observed result:
 - Seat-belt warning lamp turned on.
 - The display showed `SRS Malfunction Service Required`.
 - Full gauge backlighting did not turn on.
-- The complete warning-lamp sequence did not occur.
+- The complete warning-lamp array (with the exception of the seat belt warning lamp) did not turn on.
 
-This is called **limited** or **ACC-like** because it activates only part of the cluster. Its exact Mercedes production meaning is not yet proven.
+This is called **limited** or **ACC-like** because it activates only part of the cluster. Its exact Mercedes production purpose and significance is still unknown for now.
 
 #### Alternate full-ON state
 
@@ -323,7 +317,7 @@ When this was sent from a confirmed full-ON state, the warning lamps and gauge i
 0x001 : 00 00 00 00 00 00 00 00
 ```
 
-This also returned the cluster to the pre-start state. The display remained on long enough to show the PRE-SAFE message and then switched off after roughly one minute.
+This also returned the cluster to the pre-start state (i.e. only the PRE-SAFE display message showing up on the screen, with nothing else on). The display remained on long enough to show the PRE-SAFE message and then switched off after roughly one minute.
 
 These tests proved that the shared seven-byte suffix is not needed for the visible `C2`, `CC`, `CF`, or simple `04` behavior. Byte 0 alone is enough for the confirmed bench functions.
 
@@ -350,7 +344,7 @@ The frame is therefore not required for basic ignition control. It is being inte
 
 <h3 align="left">Confirmed CAN E state map</h3>
 
-The following table records the behavior that has been physically confirmed on this instrument cluster. All frames use CAN ID `0x001`, DLC 8, and a 100 ms period.
+The following table records the behavior that has been physically confirmed on this instrument cluster so far (8/9/2026). All frames use CAN ID `0x001`and a 100 ms period.
 
 | Byte 0 | Bytes 1-7 | Confirmed bench behavior | Current label |
 |---:|---|---|---|
@@ -380,7 +374,7 @@ Full ON:           CC 00 00 00 00 00 00 00
 Delayed OFF:       CF 00 00 00 00 00 00 00
 ```
 
-These labels describe the behavior seen on the bench. They do not prove that the values are the exact production encodings used by every W212.
+These labels describe the behavior seen on the bench. They do not prove that the values are the exact production encodings used by every W212 generation Mercedes-Benz vehicle.
 
 
 <h3 align="left">Testing the DBC ignition message at 0x245</h3>
@@ -391,9 +385,9 @@ The DBC contains this message:
 BO_ 581 IGNITION: 8 XXX
 ```
 
-The number `581` is decimal, which converts to hexadecimal CAN ID `0x245`. The DBC gives no signal positions, counters, checksum, or valid payload examples for this message.
+The number `581` is decimal, which converts to hexadecimal CAN ID `0x245`. However, the DBC file gives no signal positions, counters, checksum, or valid payload examples for this message.
 
-The explorer tested `0x245` using:
+The explorer INI file tested `0x245` using:
 
 1. Every individual payload bit, for a total of 64 one-bit tests.
 2. The values below in each of the eight byte positions:
@@ -406,7 +400,7 @@ The explorer tested `0x245` using:
 
 None of the single-bit, selected-byte, or nibble sweeps produced visible or audible feedback from the cluster.
 
-This does not prove that `0x245` is invalid. A real message may require multiple nonzero bytes, an alive counter, a checksum, a changing sequence, a companion frame, or another prerequisite state. Since `0x001` already provides reliable bench control, further blind searches on `0x245` are a lower priority.
+This does not prove that `0x245` is invalid. A real message may require multiple nonzero bytes, an alive counter, a checksum, a changing sequence, a companion frame, or some another prerequisite state. Since `0x001` already provides reliable bench control, further blind searches on `0x245` are a lower priority.
 
 Also, an occasional cluster-transmitted hexadecimal ID `0x581` was seen in some logs. That frame is not the same as decimal DBC ID 581. Decimal 581 is `0x245`.
 
@@ -542,7 +536,7 @@ cluster remains fully ON
 
 <h3 align="left">Why the warning messages and chimes appear</h3>
 
-Once full ignition is simulated, the cluster begins checking for information from the rest of the vehicle. The bench does not currently provide messages from systems such as:
+Once full ignition is simulated, the cluster begins checking for information from the rest of the vehicle. The bench does not currently provide messages from the relevant systems (due to the lack of a CAN B network in the current testing setup) such as:
 
 - SRS and restraint control.
 - ESP and ABS.
@@ -553,14 +547,14 @@ Once full ignition is simulated, the cluster begins checking for information fro
 - Tire-pressure and driver-assistance systems.
 - Modules that communicate on CAN B.
 
-The cluster therefore cycles through warnings for missing or unavailable systems. Some higher-priority warnings also produce chimes.
+The cluster therefore cycles through warnings for missing or unavailable systems. A set of chimes is also produced upon initial simulation.
 
 These warnings are useful evidence that the cluster entered its full operating state. They do not mean that the missing systems have been simulated or decoded.
 
-Factory documentation also states that the cluster receives information over both CAN E and CAN B, uses Circuit 15 status for normal operating displays, calculates vehicle speed from wheel-speed inputs, and requires engine-running information plus engine speed for the tachometer. This explains why the ignition state can be activated while the gauges still do not show meaningful values.
+Factory documentation also states that the cluster receives information over both CAN E and CAN B, uses Circuit 15 status for normal operating displays, calculates vehicle speed from wheel-speed inputs, and requires engine-running information plus engine speed for the tachometer. This explains why the ignition state can be activated while the gauges still do not show meaningful values. Such information was obtained through [charm.li](charm.li) [page](https://charm.li/Mercedes%20Benz/2010/E%20350%20Sedan%20%28212.056%29%20V6-3.5L%20%28272.980%29/Repair%20and%20Diagnosis/)
 
 
-<h3 align="left">What has now been solved on CAN E</h3>
+<h3 align="left">What has now been solved on CAN E (as of 8/9/2026)</h3>
 
 | Feature | Status |
 |---|---|
@@ -591,7 +585,7 @@ The most important milestone is that the cluster can now be moved between a repe
 
 <h3 align="left">What remains uncertain</h3>
 
-The current results are **functionally confirmed on this bench cluster**, but several production details remain unknown:
+The current results are **functionally confirmed on my personal testing setup**, but several production details remain unknown:
 
 - It has not been proven that `0x001` is the exact message normally sent by the W212 electronic ignition switch.
 - The exact original meanings of `04`, `C2`, `CC`, `CF`, and `07` have not been confirmed from an authentic vehicle recording.
@@ -604,9 +598,9 @@ The current results are **functionally confirmed on this bench cluster**, but se
 This distinction is important: a message can be useful for a simulator even when its original factory meaning is not fully known.
 
 
-<h3 align="left">Recommended next steps</h3>
+<h3 align="left">Next steps</h3>
 
-The next work should build on the stable ignition baseline rather than continue broad ignition searches.
+My next foray into this project will build on the following task items:
 
 1. **Run a matching 450 ms CF control pulse.** Test `CC -> CF for 450 ms -> CC`. If CF behaves exactly like `07`, then the 07 result may be explained by the general 1.5-second shutdown delay. If CF behaves differently, that would strengthen the case that `07` is a distinct transitional state.
 2. **Begin wheel-speed testing on `0x203`.** The DBC describes four individual wheel-speed fields and moving-state bits. A first test should use the same low speed on all four wheels and increase it slowly while monitoring the speedometer.
@@ -614,48 +608,9 @@ The next work should build on the stable ignition baseline rather than continue 
 4. **Find engine-running and engine-speed messages.** The tachometer is expected to require both an engine-running or Circuit 61 state and a valid RPM value.
 5. **Test gear-display candidates `0x06D` and `0x073`.** These may be needed to show Park, Reverse, Neutral, or Drive correctly.
 6. **Decode the remaining `0x045` steering-wheel controls.** Up, down, left, right, and back are still needed for complete menu navigation.
-7. **Add a second CAN interface and begin CAN B testing.** This is required to simulate functions that do not arrive over CAN E.
+7. **Add a second CAN interface and begin CAN B testing.** This is required to simulate functions that do not arrive over CAN E. I may end up switching my test setup to use an STM32 NUCLEO 767ZI microcontroller for this purpose due to its multiple CAN controllers.
 8. **Keep recording RX logs.** The `0x015` and `0x39D` markers should be used to confirm that future experiments do not accidentally remove the full-ON state.
 
 
-<h3 align="left">Files that document this CAN E work</h3>
-
-```text
-mercedes_benz_e350_2010(1).dbc
-w212_can_e_ignition_explorer(1).ino
-w212_final_07_pulse_test.ino
-sequence_start_serial_monitor_output.txt
-clean_simple_profile_rx_recording.txt
-cf_alone_off_command_testing_output.txt
-07_only_as_transition_test_output.txt
-07_final_test.txt
-Comfort_displays_function.pdf
-Trip_Computer_function.pdf
-Display_operating_conditions_function.pdf
-Instrument_cluster_control_unit.pdf
-Control_Warning_Messages_Function_Part_1.pdf
-Control_Warning_Messages_Function_Part_2.pdf
-```
-
-These files provide the DBC definitions, test programs, raw serial logs, wiring information, and factory descriptions used to reach the conclusions above.
-
-
-<h3 align="left">Current practical CAN E conclusion</h3>
-
-For normal bench operation, the smallest confirmed ignition control is:
-
-```text
-CAN ID: 0x001
-DLC: 8
-Period: 100 ms
-
-FULL ON:
-04 00 00 00 00 00 00 00
-
-OFF / PRE-START:
-00 00 00 00 00 00 00 00
-```
-
-No separate display-wake message and no `0x2F8` key/status message are required for this pair.
 
 This completes the first major CAN E goal: the instrument cluster can now wake itself, run its warning-lamp and illumination sequence, show its operating warnings, produce chimes, and return to its pre-start state on command. The next major goal is to supply valid wheel-speed information so the speedometer can be controlled intentionally.
